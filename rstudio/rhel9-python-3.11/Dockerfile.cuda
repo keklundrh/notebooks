@@ -16,16 +16,17 @@ RUN dnf -y upgrade --refresh --best --nodocs --noplugins --setopt=install_weak_d
     && dnf clean all -y
 
 # Install useful OS packages
-RUN dnf install -y mesa-libGL skopeo && dnf clean all && rm -rf /var/cache/yum
+# RUN dnf install -y mesa-libGL skopeo && dnf clean all && rm -rf /var/cache/yum
+RUN dnf install -y mesa-libGL && dnf clean all && rm -rf /var/cache/yum # remove skopeo, CVE-2025-4674 
 
 # Other apps and tools installed as default user
 USER 1001
 
 # Install the oc client
-RUN curl -L https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/stable/openshift-client-linux.tar.gz \
-        -o /tmp/openshift-client-linux.tar.gz && \
-    tar -xzvf /tmp/openshift-client-linux.tar.gz oc && \
-    rm -f /tmp/openshift-client-linux.tar.gz
+# RUN curl -L https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/stable/openshift-client-linux.tar.gz \
+#         -o /tmp/openshift-client-linux.tar.gz && \
+#     tar -xzvf /tmp/openshift-client-linux.tar.gz oc && \
+#     rm -f /tmp/openshift-client-linux.tar.gz
 
 WORKDIR /opt/app-root/src
 
@@ -36,7 +37,7 @@ FROM base as cuda-base
 
 ARG CUDA_SOURCE_CODE=cuda/rhel9-python-3.11
 # Access the client's secret for the subscription manager from the environment variable
-ARG SECRET_DIR=/opt/app-root/src/.sec
+ARG SECRET_DIR=/run/secrets/ #/opt/app-root/src/.sec
 ARG SERVERURL_DEFAULT=""
 ARG BASEURL_DEFAULT=""
 
@@ -46,19 +47,26 @@ USER 0
 WORKDIR /opt/app-root/bin
 
 # If necessary, run the subscription manager command using the provided credentials. Only include --serverurl and --baseurl if they are provided
-RUN if [ -d "${SECRET_DIR}" ]; then \
-    SERVERURL=$(cat ${SECRET_DIR}/SERVERURL 2>/dev/null || echo ${SERVERURL_DEFAULT}) && \
-    BASEURL=$(cat ${SECRET_DIR}/BASEURL 2>/dev/null || echo ${BASEURL_DEFAULT}) && \
-    USERNAME=$(cat ${SECRET_DIR}/USERNAME) && \
-    PASSWORD=$(cat ${SECRET_DIR}/PASSWORD) && \
-    subscription-manager register \
-    ${SERVERURL:+--serverurl=$SERVERURL} \
-    ${BASEURL:+--baseurl=$BASEURL} \
-    --username=$USERNAME \
-    --password=$PASSWORD \
-    --force \
-    --auto-attach; \
-  fi
+# RUN if [ -d "${SECRET_DIR}" ]; then \
+#     SERVERURL=$(cat ${SECRET_DIR}/SERVERURL 2>/dev/null || echo ${SERVERURL_DEFAULT}) && \
+#     BASEURL=$(cat ${SECRET_DIR}/BASEURL 2>/dev/null || echo ${BASEURL_DEFAULT}) && \
+#     USERNAME=$(cat ${SECRET_DIR}/USERNAME) && \
+#     PASSWORD=$(cat ${SECRET_DIR}/PASSWORD) && \
+#     subscription-manager register \
+#     ${SERVERURL:+--serverurl=$SERVERURL} \
+#     ${BASEURL:+--baseurl=$BASEURL} \
+#     --username=$USERNAME \
+#     --password=$PASSWORD \
+#     --force \
+#     --auto-attach; \
+#   fi
+
+RUN --mount=type=secret,id=USERNAME \
+    --mount=type=secret,id=PASSWORD \
+    set -eux; \
+    USERNAME="$(tr -d '\r\n' < ${SECRET_DIR}/USERNAME)"; \
+    PASSWORD="$(tr -d '\r\n' < ${SECRET_DIR}/PASSWORD)"; \
+    subscription-manager register --username="$USERNAME" --password="$PASSWORD" --force --auto-attach
 
 ENV NVARCH=x86_64
 ENV NVIDIA_REQUIRE_CUDA="cuda>=12.4 brand=tesla,driver>=470,driver<471 brand=unknown,driver>=470,driver<471 brand=nvidia,driver>=470,driver<471 brand=nvidiartx,driver>=470,driver<471 brand=geforce,driver>=470,driver<471 brand=geforcertx,driver>=470,driver<471 brand=quadro,driver>=470,driver<471 brand=quadrortx,driver>=470,driver<471 brand=titan,driver>=470,driver<471 brand=titanrtx,driver>=470,driver<471 brand=tesla,driver>=525,driver<526 brand=unknown,driver>=525,driver<526 brand=nvidia,driver>=525,driver<526 brand=nvidiartx,driver>=525,driver<526 brand=geforce,driver>=525,driver<526 brand=geforcertx,driver>=525,driver<526 brand=quadro,driver>=525,driver<526 brand=quadrortx,driver>=525,driver<526 brand=titan,driver>=525,driver<526 brand=titanrtx,driver>=525,driver<526 brand=tesla,driver>=535,driver<536 brand=unknown,driver>=535,driver<536 brand=nvidia,driver>=535,driver<536 brand=nvidiartx,driver>=535,driver<536 brand=geforce,driver>=535,driver<536 brand=geforcertx,driver>=535,driver<536 brand=quadro,driver>=535,driver<536 brand=quadrortx,driver>=535,driver<536 brand=titan,driver>=535,driver<536 brand=titanrtx,driver>=535,driver<536"
@@ -186,7 +194,7 @@ FROM cuda-base AS cuda-rstudio
 
 ARG RSTUDIO_SOURCE_CODE=rstudio/rhel9-python-3.11
 # Access the client's secret for the subscription manager from the environment variable
-ARG SECRET_DIR=/opt/app-root/src/.sec
+ARG SECRET_DIR=/run/secrets/ #/opt/app-root/src/.sec
 ARG SERVERURL_DEFAULT=""
 ARG BASEURL_DEFAULT=""
 
@@ -206,19 +214,26 @@ USER 0
 #RUN sed -i 's/\(def in_container():\)/\1\n    return False/g' /usr/lib64/python*/*-packages/rhsm/config.py
 
 # If necessary, run the subscription manager command using the provided credentials. Only include --serverurl and --baseurl if they are provided
-RUN if [ -d "${SECRET_DIR}" ]; then \
-    SERVERURL=$(cat ${SECRET_DIR}/SERVERURL 2>/dev/null || echo ${SERVERURL_DEFAULT}) && \
-    BASEURL=$(cat ${SECRET_DIR}/BASEURL 2>/dev/null || echo ${BASEURL_DEFAULT}) && \
-    USERNAME=$(cat ${SECRET_DIR}/USERNAME) && \
-    PASSWORD=$(cat ${SECRET_DIR}/PASSWORD) && \
-    subscription-manager register \
-    ${SERVERURL:+--serverurl=$SERVERURL} \
-    ${BASEURL:+--baseurl=$BASEURL} \
-    --username=$USERNAME \
-    --password=$PASSWORD \
-    --force \
-    --auto-attach; \
-  fi
+# RUN if [ -d "${SECRET_DIR}" ]; then \
+#     SERVERURL=$(cat ${SECRET_DIR}/SERVERURL 2>/dev/null || echo ${SERVERURL_DEFAULT}) && \
+#     BASEURL=$(cat ${SECRET_DIR}/BASEURL 2>/dev/null || echo ${BASEURL_DEFAULT}) && \
+#     USERNAME=$(cat ${SECRET_DIR}/USERNAME) && \
+#     PASSWORD=$(cat ${SECRET_DIR}/PASSWORD) && \
+#     subscription-manager register \
+#     ${SERVERURL:+--serverurl=$SERVERURL} \
+#     ${BASEURL:+--baseurl=$BASEURL} \
+#     --username=$USERNAME \
+#     --password=$PASSWORD \
+#     --force \
+#     --auto-attach; \
+#   fi
+
+RUN --mount=type=secret,id=USERNAME \
+    --mount=type=secret,id=PASSWORD \
+    set -eux; \
+    USERNAME="$(tr -d '\r\n' < ${SECRET_DIR}/USERNAME)"; \
+    PASSWORD="$(tr -d '\r\n' < ${SECRET_DIR}/PASSWORD)"; \
+    subscription-manager register --username="$USERNAME" --password="$PASSWORD" --force --auto-attach
 
 ENV R_VERSION=4.4.3
 
@@ -257,7 +272,15 @@ RUN wget --progress=dot:giga https://download2.rstudio.org/server/rhel9/x86_64/$
     # install necessary texlive-framed package to make Knit R markup to PDF rendering possible \
     dnf install -y libsodium-devel.x86_64 libgit2-devel.x86_64 libcurl-devel harfbuzz-devel.x86_64 fribidi-devel.x86_64 cmake "flexiblas-*" texlive-framed && \
     dnf clean all && \
-    rm -rf /var/cache/yum
+    rm -rf /var/cache/yum && \ 
+    # CVE remediation
+    # remediate CVEs introduced by esbuild
+    rm /usr/lib/rstudio-server/bin/quarto/bin/tools/x86_64/esbuild && \
+    npm install esbuild && \
+    mv node_modules/esbuild/bin/esbuild /usr/lib/rstudio-server/bin/quarto/bin/tools/x86_64/ && \
+    # clean up
+    rm -r node_modules package.json package-lock.json && \
+    npm cache clean --force
 
 COPY ${RSTUDIO_SOURCE_CODE}/rsession.conf /etc/rstudio/rsession.conf
 
