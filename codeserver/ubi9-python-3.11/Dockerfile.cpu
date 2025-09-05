@@ -9,7 +9,8 @@ WORKDIR /opt/app-root/bin
 USER 0
 
 # Install useful OS packages
-RUN dnf install -y mesa-libGL skopeo && dnf clean all && rm -rf /var/cache/yum
+# RUN dnf install -y mesa-libGL skopeo && dnf clean all && rm -rf /var/cache/yum
+RUN dnf install -y mesa-libGL && dnf clean all && rm -rf /var/cache/yum
 
 # Other apps and tools installed as default user
 USER 1001
@@ -18,10 +19,10 @@ USER 1001
 RUN pip install --no-cache-dir -U "micropipenv[toml]"
 
 # Install the oc client
-RUN curl -L https://mirror.openshift.com/pub/openshift-v4/$(uname -m)/clients/ocp/stable/openshift-client-linux.tar.gz \
-        -o /tmp/openshift-client-linux.tar.gz && \
-    tar -xzvf /tmp/openshift-client-linux.tar.gz oc && \
-    rm -f /tmp/openshift-client-linux.tar.gz
+# RUN curl -L https://mirror.openshift.com/pub/openshift-v4/$(uname -m)/clients/ocp/stable/openshift-client-linux.tar.gz \
+#         -o /tmp/openshift-client-linux.tar.gz && \
+#     tar -xzvf /tmp/openshift-client-linux.tar.gz oc && \
+#     rm -f /tmp/openshift-client-linux.tar.gz
 
 
 ####################
@@ -47,7 +48,7 @@ USER 0
 WORKDIR /opt/app-root/bin
 
 # Install usefull OS packages
-RUN dnf install -y jq git-lfs libsndfile && dnf clean all && rm -rf /var/cache/yum
+# RUN dnf install -y jq git-lfs libsndfile && dnf clean all && rm -rf /var/cache/yum
 
 # Install code-server
 RUN yum install -y "https://github.com/coder/code-server/releases/download/${CODESERVER_VERSION}/code-server-${CODESERVER_VERSION/v/}-amd64.rpm" && \
