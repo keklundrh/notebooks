@@ -141,7 +141,7 @@ RUN mkdir -p /var/log/nginx \
 RUN chmod -R 777 /opt/app-root/lib
 
 # REMOVE/HIDE unneccesary packages
-RUN dnf -y remove vim-minimal vim-filesystem && \
+RUN dnf -y remove vim-minimal vim-filesystem tar && \
     dnf -y clean all && \
     rm -rf /var/cache/yum/*
 
