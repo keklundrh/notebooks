@@ -17,7 +17,7 @@ RUN dnf -y upgrade --refresh --best --nodocs --noplugins --setopt=install_weak_d
 
 # Install useful OS packages
 # RUN dnf install -y mesa-libGL skopeo && dnf clean all && rm -rf /var/cache/yum
-RUN dnf install -y mesa-libGL && dnf clean all && rm -rf /var/cache/yum # remove skopeo, CVE-2025-4674 
+RUN dnf install -y mesa-libGL && dnf clean all && rm -rf /var/cache/yum # remove skopeo, CVE-2025-4674
 
 # Other apps and tools installed as default user
 USER 1001
@@ -69,7 +69,7 @@ RUN --mount=type=secret,id=USERNAME \
     subscription-manager register --username="$USERNAME" --password="$PASSWORD" --force --auto-attach
 
 ENV NVARCH=x86_64
-ENV NVIDIA_REQUIRE_CUDA="cuda>=12.4 brand=tesla,driver>=470,driver<471 brand=unknown,driver>=470,driver<471 brand=nvidia,driver>=470,driver<471 brand=nvidiartx,driver>=470,driver<471 brand=geforce,driver>=470,driver<471 brand=geforcertx,driver>=470,driver<471 brand=quadro,driver>=470,driver<471 brand=quadrortx,driver>=470,driver<471 brand=titan,driver>=470,driver<471 brand=titanrtx,driver>=470,driver<471 brand=tesla,driver>=525,driver<526 brand=unknown,driver>=525,driver<526 brand=nvidia,driver>=525,driver<526 brand=nvidiartx,driver>=525,driver<526 brand=geforce,driver>=525,driver<526 brand=geforcertx,driver>=525,driver<526 brand=quadro,driver>=525,driver<526 brand=quadrortx,driver>=525,driver<526 brand=titan,driver>=525,driver<526 brand=titanrtx,driver>=525,driver<526 brand=tesla,driver>=535,driver<536 brand=unknown,driver>=535,driver<536 brand=nvidia,driver>=535,driver<536 brand=nvidiartx,driver>=535,driver<536 brand=geforce,driver>=535,driver<536 brand=geforcertx,driver>=535,driver<536 brand=quadro,driver>=535,driver<536 brand=quadrortx,driver>=535,driver<536 brand=titan,driver>=535,driver<536 brand=titanrtx,driver>=535,driver<536"
+ENV NVIDIA_REQUIRE_CUDA "cuda>=12.6 brand=unknown,driver>=470,driver<471 brand=grid,driver>=470,driver<471 brand=tesla,driver>=470,driver<471 brand=nvidia,driver>=470,driver<471 brand=quadro,driver>=470,driver<471 brand=quadrortx,driver>=470,driver<471 brand=nvidiartx,driver>=470,driver<471 brand=vapps,driver>=470,driver<471 brand=vpc,driver>=470,driver<471 brand=vcs,driver>=470,driver<471 brand=vws,driver>=470,driver<471 brand=cloudgaming,driver>=470,driver<471 brand=unknown,driver>=535,driver<536 brand=grid,driver>=535,driver<536 brand=tesla,driver>=535,driver<536 brand=nvidia,driver>=535,driver<536 brand=quadro,driver>=535,driver<536 brand=quadrortx,driver>=535,driver<536 brand=nvidiartx,driver>=535,driver<536 brand=vapps,driver>=535,driver<536 brand=vpc,driver>=535,driver<536 brand=vcs,driver>=535,driver<536 brand=vws,driver>=535,driver<536 brand=cloudgaming,driver>=535,driver<536 brand=unknown,driver>=550,driver<551 brand=grid,driver>=550,driver<551 brand=tesla,driver>=550,driver<551 brand=nvidia,driver>=550,driver<551 brand=quadro,driver>=550,driver<551 brand=quadrortx,driver>=550,driver<551 brand=nvidiartx,driver>=550,driver<551 brand=vapps,driver>=550,driver<551 brand=vpc,driver>=550,driver<551 brand=vcs,driver>=550,driver<551 brand=vws,driver>=550,driver<551 brand=cloudgaming,driver>=550,driver<551"
 ENV NV_CUDA_CUDART_VERSION=12.6.77-1
 
 COPY ${CUDA_SOURCE_CODE}/cuda.repo-x86_64 /etc/yum.repos.d/cuda.repo
@@ -78,7 +78,7 @@ RUN NVIDIA_GPGKEY_SUM=d0664fbbdb8c32356d45de36c5984617217b2d0bef41b93ccecd326ba3
     curl -fsSL https://developer.download.nvidia.com/compute/cuda/repos/rhel9/${NVARCH}/D42D0685.pub | sed '/^Version/d' > /etc/pki/rpm-gpg/RPM-GPG-KEY-NVIDIA && \
     echo "$NVIDIA_GPGKEY_SUM  /etc/pki/rpm-gpg/RPM-GPG-KEY-NVIDIA" | sha256sum -c --strict -
 
-ENV CUDA_VERSION=12.6.3 
+ENV CUDA_VERSION=12.6.3
 
 # For libraries in the cuda-compat-* package: https://docs.nvidia.com/cuda/eula/index.html#attachment-a
 RUN yum upgrade -y && yum install -y \
@@ -102,15 +102,15 @@ ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
 # Install CUDA runtime from:
 # https://gitlab.com/nvidia/container-images/cuda/-/blob/master/dist/12.6.3/ubi9/runtime/Dockerfile
-ENV NV_CUDA_LIB_VERSION=12.6.3-1 
-ENV NV_NVTX_VERSION=12.6.77-1 
-ENV NV_LIBNPP_VERSION=12.3.1.54-1 
+ENV NV_CUDA_LIB_VERSION=12.6.3-1
+ENV NV_NVTX_VERSION=12.6.77-1
+ENV NV_LIBNPP_VERSION=12.3.1.54-1
 ENV NV_LIBNPP_PACKAGE=libnpp-12-6-${NV_LIBNPP_VERSION}
-ENV NV_LIBCUBLAS_VERSION=12.6.4.1-1 
+ENV NV_LIBCUBLAS_VERSION=12.6.4.1-1
 ENV NV_LIBNCCL_PACKAGE_NAME=libnccl
-ENV NV_LIBNCCL_PACKAGE_VERSION=2.23.4-1 
-ENV NV_LIBNCCL_VERSION=2.23.4 
-ENV NCCL_VERSION=2.23.4 
+ENV NV_LIBNCCL_PACKAGE_VERSION=2.23.4-1
+ENV NV_LIBNCCL_VERSION=2.23.4
+ENV NCCL_VERSION=2.23.4
 ENV NV_LIBNCCL_PACKAGE=${NV_LIBNCCL_PACKAGE_NAME}-${NV_LIBNCCL_PACKAGE_VERSION}+cuda12.6
 
 RUN yum install -y \
@@ -127,18 +127,18 @@ ENV XLA_FLAGS=--xla_gpu_cuda_data_dir=/usr/local/cuda
 
 # Install CUDA devel from:
 # https://gitlab.com/nvidia/container-images/cuda/-/blob/master/dist/12.4.1/ubi9/devel/Dockerfile
-ENV NV_NVPROF_VERSION=12.6.80-1 
+ENV NV_NVPROF_VERSION=12.6.80-1
 ENV NV_NVPROF_DEV_PACKAGE=cuda-nvprof-12-6-${NV_NVPROF_VERSION}
-ENV NV_CUDA_CUDART_DEV_VERSION=12.6.77-1 
-ENV NV_NVML_DEV_VERSION=12.6.77-1 
-ENV NV_LIBCUBLAS_DEV_VERSION=12.6.4.1-1 
-ENV NV_LIBNPP_DEV_VERSION=12.3.1.54-1 
+ENV NV_CUDA_CUDART_DEV_VERSION=12.6.77-1
+ENV NV_NVML_DEV_VERSION=12.6.77-1
+ENV NV_LIBCUBLAS_DEV_VERSION=12.6.4.1-1
+ENV NV_LIBNPP_DEV_VERSION=12.3.1.54-1
 ENV NV_LIBNPP_DEV_PACKAGE=libnpp-devel-12-6-${NV_LIBNPP_DEV_VERSION}
 ENV NV_LIBNCCL_DEV_PACKAGE_NAME=libnccl-devel
-ENV NV_LIBNCCL_DEV_PACKAGE_VERSION=2.23.4-1 
-ENV NCCL_VERSION=2.23.4 
+ENV NV_LIBNCCL_DEV_PACKAGE_VERSION=2.23.4-1
+ENV NCCL_VERSION=2.23.4
 ENV NV_LIBNCCL_DEV_PACKAGE=${NV_LIBNCCL_DEV_PACKAGE_NAME}-${NV_LIBNCCL_DEV_PACKAGE_VERSION}+cuda12.6
-ENV NV_CUDA_NSIGHT_COMPUTE_VERSION=12.6.3-1 
+ENV NV_CUDA_NSIGHT_COMPUTE_VERSION=12.6.3-1
 ENV NV_CUDA_NSIGHT_COMPUTE_DEV_PACKAGE=cuda-nsight-compute-12-6-${NV_CUDA_NSIGHT_COMPUTE_VERSION}
 
 RUN yum install -y \
@@ -162,7 +162,7 @@ ENV LIBRARY_PATH=/usr/local/cuda/lib64/stubs
 
 # Install CUDA devel cudnn8 from:
 # hhttps://gitlab.com/nvidia/container-images/cuda/-/blob/master/dist/12.6.3/ubi9/devel/cudnn/Dockerfile
-ENV NV_CUDNN_VERSION=9.5.1.17-1 
+ENV NV_CUDNN_VERSION=9.5.1.17-1
 ENV NV_CUDNN_PACKAGE=libcudnn9-cuda-12-${NV_CUDNN_VERSION}
 ENV NV_CUDNN_PACKAGE_DEV=libcudnn9-devel-cuda-12-${NV_CUDNN_VERSION}
 
@@ -272,7 +272,7 @@ RUN wget --progress=dot:giga https://download2.rstudio.org/server/rhel9/x86_64/$
     # install necessary texlive-framed package to make Knit R markup to PDF rendering possible \
     dnf install -y libsodium-devel.x86_64 libgit2-devel.x86_64 libcurl-devel harfbuzz-devel.x86_64 fribidi-devel.x86_64 cmake "flexiblas-*" texlive-framed && \
     dnf clean all && \
-    rm -rf /var/cache/yum && \ 
+    rm -rf /var/cache/yum && \
     # CVE remediation
     # remediate CVEs introduced by esbuild
     rm /usr/lib/rstudio-server/bin/quarto/bin/tools/x86_64/esbuild && \
@@ -280,7 +280,7 @@ RUN wget --progress=dot:giga https://download2.rstudio.org/server/rhel9/x86_64/$
     mv node_modules/esbuild/bin/esbuild /usr/lib/rstudio-server/bin/quarto/bin/tools/x86_64/ && \
     # clean up
     rm -r node_modules package.json package-lock.json && \
-    npm cache clean --force 
+    npm cache clean --force
 
 COPY ${RSTUDIO_SOURCE_CODE}/rsession.conf /etc/rstudio/rsession.conf
 
@@ -347,8 +347,8 @@ COPY ${RSTUDIO_SOURCE_CODE}/nginx/api/ /opt/app-root/api/
 
 # REMOVE dependencies, technically only hide, but make inaccessible
 # side effects: container file is larger than it could be
-RUN dnf -y remove libsndfile bluez-libs webkit2gtk3-jsc vim-minimal vim-filesystem  && \ 
-	dnf -y clean all && \ 
+RUN dnf -y remove libsndfile bluez-libs webkit2gtk3-jsc vim-minimal vim-filesystem  && \
+	dnf -y clean all && \
 	rm -rf /var/cache/yum/*
 
 # Test: get nsight-systems, latest rev 2025.5
@@ -357,10 +357,10 @@ RUN dnf -y remove libsndfile bluez-libs webkit2gtk3-jsc vim-minimal vim-filesyst
 #WORKDIR /tmp/
 #ARG NSIGHT_DOWNLOAD=https://developer.nvidia.com/downloads/assets/tools/secure/nsight-systems/2025_5/
 #ARG NSIGHT_SYSTEMS_RPM=nsight-systems-2025.5.1-2025.5.1.121_3638078-0.x86_64.rpm
-#RUN wget --progress=dot:giga ${NSIGHT_DOWNLOAD}/${NSIGHT_SYSTEMS_RPM} && \ 
-#	yum install -y ${NSIGHT_SYSTEMS_RPM} && \ 
-#	rm ${NSIGHT_SYSTEMS_RPM} && \ 
-#	yum -y clean all --enablerepo='*'  
+#RUN wget --progress=dot:giga ${NSIGHT_DOWNLOAD}/${NSIGHT_SYSTEMS_RPM} && \
+#	yum install -y ${NSIGHT_SYSTEMS_RPM} && \
+#	rm ${NSIGHT_SYSTEMS_RPM} && \
+#	yum -y clean all --enablerepo='*'
 #
 
 # Launcher
