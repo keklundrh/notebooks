@@ -31,7 +31,7 @@ RUN pip install --no-cache-dir -U "micropipenv[toml]"
 FROM base AS codeserver
 
 ARG CODESERVER_SOURCE_CODE=codeserver/ubi9-python-3.11
-ARG CODESERVER_VERSION=v4.98.0
+ARG CODESERVER_VERSION=v4.99.4
 
 LABEL name="odh-notebook-code-server-ubi9-python-3.11" \
       summary="code-server image with python 3.11 based on UBI 9" \
