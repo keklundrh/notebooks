@@ -42,7 +42,7 @@ ARG SERVERURL_DEFAULT=""
 ARG BASEURL_DEFAULT=""
 
 # Install CUDA base from:
-# https://gitlab.com/nvidia/container-images/cuda/-/tree/master/dist/12.4.1/ubi9/base
+# https://gitlab.com/nvidia/container-images/cuda/-/tree/master/dist/12.6.3/ubi9/base
 USER 0
 WORKDIR /opt/app-root/bin
 
@@ -126,7 +126,7 @@ RUN yum install -y \
 ENV XLA_FLAGS=--xla_gpu_cuda_data_dir=/usr/local/cuda
 
 # Install CUDA devel from:
-# https://gitlab.com/nvidia/container-images/cuda/-/blob/master/dist/12.4.1/ubi9/devel/Dockerfile
+# https://gitlab.com/nvidia/container-images/cuda/-/blob/master/dist/12.6.3/ubi9/devel/Dockerfile
 ENV NV_NVPROF_VERSION=12.6.80-1
 ENV NV_NVPROF_DEV_PACKAGE=cuda-nvprof-12-6-${NV_NVPROF_VERSION}
 ENV NV_CUDA_CUDART_DEV_VERSION=12.6.77-1
