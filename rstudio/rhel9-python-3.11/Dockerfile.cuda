@@ -346,11 +346,6 @@ COPY ${RSTUDIO_SOURCE_CODE}/nginx/httpconf/ /opt/app-root/etc/nginx.d/
 COPY ${RSTUDIO_SOURCE_CODE}/nginx/api/ /opt/app-root/api/
 
 
-# REMOVE dependencies, technically only hide, but make inaccessible
-# side effects: container file is larger than it could be
-RUN dnf -y remove libsndfile bluez-libs webkit2gtk3-jsc vim-minimal vim-filesystem cups-libs python3-setuptools && \
-	dnf -y clean all && \
-	rm -rf /var/cache/yum/*
 
 # Test: get nsight-systems, latest rev 2025.5
 # 2025.5 still contains CVE-2025-4674
@@ -374,6 +369,12 @@ COPY ${RSTUDIO_SOURCE_CODE}/run-rstudio.sh ${RSTUDIO_SOURCE_CODE}/setup_rstudio.
 RUN if [ -d "${SECRET_DIR}" ]; then \
     subscription-manager remove --all && subscription-manager unregister && subscription-manager clean; \
   fi
+
+# REMOVE dependencies, technically only hide, but make inaccessible
+# side effects: container file is larger than it could be
+RUN dnf -y remove libsndfile bluez-libs webkit2gtk3-jsc vim-minimal vim-filesystem cups-libs python3-setuptools && \
+	dnf -y clean all && \
+	rm -rf /var/cache/yum/*
 
 USER 1001
 
