@@ -1,4 +1,4 @@
-####################
+###################
 # base             #
 ####################
 
@@ -127,9 +127,48 @@ RUN dnf install -y \
 #RUN dnf -y install cuda-toolkit-12-6 && \
 #    dnf -y clean all --enablerepo="*"
 
-# restore notebook user workspace
-USER 1001
-WORKDIR /opt/app-root/src
+
+ARG SECRET_DIR=/run/secrets/ #/opt/app-root/src/.sec
+RUN --mount=type=secret,id=USERNAME \
+    --mount=type=secret,id=PASSWORD \
+    set -eux; \
+    USERNAME="$(tr -d '\r\n' < ${SECRET_DIR}/USERNAME)"; \
+    PASSWORD="$(tr -d '\r\n' < ${SECRET_DIR}/PASSWORD)"; \
+    subscription-manager register --username="$USERNAME" --password="$PASSWORD" --force --auto-attach
+
+# Install R
+ENV R_VERSION=4.4.3
+
+# RUN dnf install -y xdg-utils
+
+#RUN yum update -y && dnf upgrade -y && yum install -y yum-utils && \
+RUN yum install -y yum-utils && \
+    subscription-manager repos --enable codeready-builder-for-rhel-9-x86_64-rpms && \
+#    yum-config-manager --enable codeready-builder-for-rhel-9-x86_64-rpms && \
+#    yum install -y https://download.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm && \
+    INSTALL_PKGS="R-core R-core-devel R-java R-Rcpp R-highlight \
+    R-littler R-littler-examples openssl-libs compat-openssl11" && \
+    yum install -y --setopt=tsflags=nodocs $INSTALL_PKGS && \
+    echo 'options(repos = c(CRAN = "https://cran.rstudio.com/"), download.file.method = "libcurl")' >> /usr/lib64/R/etc/Rprofile.site && \
+    (umask 002;touch /usr/lib64/R/etc/Renviron.site) && \
+    yum -y clean all --enablerepo='*'
+
+# set R library to default (used in install.r from littler)
+ENV LIBLOC=/usr/lib64/R/library
+ENV R_LIBS_USER=/opt/app-root/bin/Rpackages/4.4
+
+RUN chmod -R a+w ${LIBLOC} && \
+    # create User R Library path
+    mkdir -p ${R_LIBS_USER} && \
+    chmod -R a+w ${R_LIBS_USER}
+
+# Install R packages
+RUN R -e "install.packages(c('Rcpp', 'languageserver'))"
+
+# Unregister the system
+#RUN if [ -d "${SECRET_DIR}" ]; then \
+RUN subscription-manager remove --all && subscription-manager unregister && subscription-manager clean
+#  fi
 
 ## CUDA
 USER root
@@ -145,7 +184,26 @@ RUN dnf -y remove vim-minimal vim-filesystem tar && \
     dnf -y clean all && \
     rm -rf /var/cache/yum/*
 
-# Restore notebook user workspace
+# restore notebook user workspace
 USER 1001
 
+# Create and intall the extensions though build-time on a temporary directory. Later this directory will copied on the `/opt/app-root/src/.local/share/code-server/extensions` via run-code-server.sh file when it starts up.
+RUN mkdir -p /opt/app-root/extensions-temp && \
+    code-server --install-extension REditorSupport.r --extensions-dir /opt/app-root/extensions-temp
+
+
+# Install usefull packages from Pipfile.lock
+ARG CODESERVER_SOURCE_CODE=codeserver/ubi9-python-3.11
+
+COPY ${CODESERVER_SOURCE_CODE}/Pipfile.lock ./
+
+# Install packages and cleanup
+RUN echo "Installing softwares and packages" && \
+    micropipenv install && \
+    rm -f ./Pipfile.lock && \
+    # Fix permissions to support pip in Openshift environments \
+    chmod -R g+w /opt/app-root/lib/python3.11/site-packages && \
+    fix-permissions /opt/app-root -P
+
+WORKDIR /opt/app-root/src
 
