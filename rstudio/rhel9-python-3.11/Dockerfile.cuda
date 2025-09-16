@@ -17,7 +17,8 @@ RUN dnf -y upgrade --refresh --best --nodocs --noplugins --setopt=install_weak_d
 
 # Install useful OS packages
 # RUN dnf install -y mesa-libGL skopeo && dnf clean all && rm -rf /var/cache/yum
-RUN dnf install -y mesa-libGL && dnf clean all && rm -rf /var/cache/yum # remove skopeo, CVE-2025-4674
+RUN dnf install -y mesa-libGL python3-setuptools && \
+    dnf clean all && rm -rf /var/cache/yum # remove skopeo, CVE-2025-4674
 
 # Other apps and tools installed as default user
 USER 1001
@@ -347,7 +348,7 @@ COPY ${RSTUDIO_SOURCE_CODE}/nginx/api/ /opt/app-root/api/
 
 # REMOVE dependencies, technically only hide, but make inaccessible
 # side effects: container file is larger than it could be
-RUN dnf -y remove libsndfile bluez-libs webkit2gtk3-jsc vim-minimal vim-filesystem  && \
+RUN dnf -y remove libsndfile bluez-libs webkit2gtk3-jsc vim-minimal vim-filesystem cups-libs python3-setuptools && \
 	dnf -y clean all && \
 	rm -rf /var/cache/yum/*
 
