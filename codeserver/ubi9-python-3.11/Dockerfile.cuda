@@ -180,7 +180,8 @@ RUN mkdir -p /var/log/nginx \
 RUN chmod -R 777 /opt/app-root/lib
 
 # REMOVE/HIDE unneccesary packages
-RUN dnf -y remove vim-minimal vim-filesystem tar && \
+RUN dnf -y remove vim-minimal vim-filesystem tar python3-setuptools && \
+    find /usr/share -name \*setuptools\*.whl -exec rm {} + && \
     dnf -y clean all && \
     rm -rf /var/cache/yum/*
 
