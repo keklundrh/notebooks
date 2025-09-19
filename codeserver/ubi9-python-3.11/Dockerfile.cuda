@@ -1,14 +1,20 @@
 ###################
 # base             #
 ####################
-
 FROM registry.access.redhat.com/ubi9/python-311:latest AS base
 
 ## Install base
 WORKDIR /opt/app-root/bin
 
+# Install micropipenv to deploy packages from Pipfile.lock
+RUN pip install --no-cache-dir -U "micropipenv[toml]"
+
 # OS Packages needs to be installed as root
-USER 0
+USER root
+
+# upgrade first to avoid fixable vulnerabilities
+RUN dnf -y upgrade --refresh --best --nodocs --noplugins --setopt=install_weak_deps=0 --setopt=keepcache=0 \
+    && dnf clean all -y
 
 # Install useful OS packages
 # RUN dnf install -y mesa-libGL skopeo && dnf clean all && rm -rf /var/cache/yum
@@ -17,25 +23,19 @@ RUN dnf install -y mesa-libGL && dnf clean all && rm -rf /var/cache/yum
 # Other apps and tools installed as default user
 USER 1001
 
-# Install micropipenv to deploy packages from Pipfile.lock
-RUN pip install --no-cache-dir -U "micropipenv[toml]"
-
+WORKDIR /opt/app-root/src
 
 ## cuda-base:
 # from https://gitlab.com/nvidia/container-images/cuda/-/tree/master/dist/12.6.3/ubi9/base
-FROM base as cuda-base-amd64
-ENV NVARCH=x86_64
+FROM base as cuda-base
 
-FROM cuda-base-${TARGETARCH} as cuda-base
-
-ARG TARGETARCH
+ARG CUDA_SOURCE_CODE=cuda
 
 # Packages need to be installed as root
 USER 0
-
 WORKDIR /opt/app-root/bin
 
-ARG CUDA_SOURCE_CODE=cuda
+ENV NVARCH=x86_64
 ENV NVIDIA_REQUIRE_CUDA "cuda>=12.6 brand=unknown,driver>=470,driver<471 brand=grid,driver>=470,driver<471 brand=tesla,driver>=470,driver<471 brand=nvidia,driver>=470,driver<471 brand=quadro,driver>=470,driver<471 brand=quadrortx,driver>=470,driver<471 brand=nvidiartx,driver>=470,driver<471 brand=vapps,driver>=470,driver<471 brand=vpc,driver>=470,driver<471 brand=vcs,driver>=470,driver<471 brand=vws,driver>=470,driver<471 brand=cloudgaming,driver>=470,driver<471 brand=unknown,driver>=535,driver<536 brand=grid,driver>=535,driver<536 brand=tesla,driver>=535,driver<536 brand=nvidia,driver>=535,driver<536 brand=quadro,driver>=535,driver<536 brand=quadrortx,driver>=535,driver<536 brand=nvidiartx,driver>=535,driver<536 brand=vapps,driver>=535,driver<536 brand=vpc,driver>=535,driver<536 brand=vcs,driver>=535,driver<536 brand=vws,driver>=535,driver<536 brand=cloudgaming,driver>=535,driver<536 brand=unknown,driver>=550,driver<551 brand=grid,driver>=550,driver<551 brand=tesla,driver>=550,driver<551 brand=nvidia,driver>=550,driver<551 brand=quadro,driver>=550,driver<551 brand=quadrortx,driver>=550,driver<551 brand=nvidiartx,driver>=550,driver<551 brand=vapps,driver>=550,driver<551 brand=vpc,driver>=550,driver<551 brand=vcs,driver>=550,driver<551 brand=vws,driver>=550,driver<551 brand=cloudgaming,driver>=550,driver<551"
 ENV NV_CUDA_CUDART_VERSION=12.6.77-1
 
@@ -147,7 +147,7 @@ USER 1001
 WORKDIR /opt/app-root/src
 
 ## install codeserver
-FROM base AS codeserver
+FROM cuda-base AS cuda-codeserver
 
 ARG CODESERVER_SOURCE_CODE=codeserver/ubi9-python-3.11
 ARG CODESERVER_VERSION=v4.99.4

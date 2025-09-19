@@ -6,8 +6,15 @@ FROM registry.access.redhat.com/ubi9/python-311:latest AS base
 ## Install base
 WORKDIR /opt/app-root/bin
 
+# Install micropipenv to deploy packages from Pipfile.lock
+RUN pip install --no-cache-dir -U "micropipenv[toml]"
+
 # OS Packages needs to be installed as root
 USER 0
+
+# upgrade first to avoid fixable vulnerabilities
+RUN dnf -y upgrade --refresh --best --nodocs --noplugins --setopt=install_weak_deps=0 --setopt=keepcache=0 \
+    && dnf clean all -y
 
 # Install useful OS packages
 # RUN dnf install -y mesa-libGL skopeo && dnf clean all && rm -rf /var/cache/yum
@@ -16,30 +23,23 @@ RUN dnf install -y mesa-libGL && dnf clean all && rm -rf /var/cache/yum
 # Other apps and tools installed as default user
 USER 1001
 
-# Install micropipenv to deploy packages from Pipfile.lock
-RUN pip install --no-cache-dir -U "micropipenv[toml]"
-
+WORKDIR /opt/app-root/src
 
 ## cuda-base:
 # from https://gitlab.com/nvidia/container-images/cuda/-/tree/master/dist/12.6.3/ubi9/base
-FROM base as cuda-base-amd64
-ENV NVARCH=x86_64
+FROM base as cuda-base
 
-FROM cuda-base-${TARGETARCH} as cuda-base
-
-ARG TARGETARCH
+ARG CUDA_SOURCE_CODE=cuda
 
 # Packages need to be installed as root
 USER 0
-
 WORKDIR /opt/app-root/bin
 
-ARG CUDA_SOURCE_CODE=cuda
+ENV NVARCH=x86_64
 ENV NVIDIA_REQUIRE_CUDA "cuda>=12.6 brand=unknown,driver>=470,driver<471 brand=grid,driver>=470,driver<471 brand=tesla,driver>=470,driver<471 brand=nvidia,driver>=470,driver<471 brand=quadro,driver>=470,driver<471 brand=quadrortx,driver>=470,driver<471 brand=nvidiartx,driver>=470,driver<471 brand=vapps,driver>=470,driver<471 brand=vpc,driver>=470,driver<471 brand=vcs,driver>=470,driver<471 brand=vws,driver>=470,driver<471 brand=cloudgaming,driver>=470,driver<471 brand=unknown,driver>=535,driver<536 brand=grid,driver>=535,driver<536 brand=tesla,driver>=535,driver<536 brand=nvidia,driver>=535,driver<536 brand=quadro,driver>=535,driver<536 brand=quadrortx,driver>=535,driver<536 brand=nvidiartx,driver>=535,driver<536 brand=vapps,driver>=535,driver<536 brand=vpc,driver>=535,driver<536 brand=vcs,driver>=535,driver<536 brand=vws,driver>=535,driver<536 brand=cloudgaming,driver>=535,driver<536 brand=unknown,driver>=550,driver<551 brand=grid,driver>=550,driver<551 brand=tesla,driver>=550,driver<551 brand=nvidia,driver>=550,driver<551 brand=quadro,driver>=550,driver<551 brand=quadrortx,driver>=550,driver<551 brand=nvidiartx,driver>=550,driver<551 brand=vapps,driver>=550,driver<551 brand=vpc,driver>=550,driver<551 brand=vcs,driver>=550,driver<551 brand=vws,driver>=550,driver<551 brand=cloudgaming,driver>=550,driver<551"
 ENV NV_CUDA_CUDART_VERSION=12.6.77-1
 
 COPY ${CUDA_SOURCE_CODE}/cuda.repo-x86_64 /etc/yum.repos.d/cuda.repo
-
 
 RUN NVIDIA_GPGKEY_SUM=d0664fbbdb8c32356d45de36c5984617217b2d0bef41b93ccecd326ba3b80c87 && \
 	curl -fsSL https://developer.download.nvidia.com/compute/cuda/repos/rhel9/${NVARCH}/D42D0685.pub | sed '/^Version/d' > /etc/pki/rpm-gpg/RPM-GPG-KEY-NVIDIA && \
@@ -142,47 +142,13 @@ RUN dnf install -y \
 #RUN dnf -y install cuda-toolkit-12-6 && \
 #    dnf -y clean all --enablerepo="*"
 
-RUN --mount=type=secret,id=USERNAME \
-    --mount=type=secret,id=PASSWORD \
-    set -eux; \
-    USERNAME="$(tr -d '\r\n' < ${SECRET_DIR}/USERNAME)"; \
-    PASSWORD="$(tr -d '\r\n' < ${SECRET_DIR}/PASSWORD)"; \
-    subscription-manager register --username="$USERNAME" --password="$PASSWORD" --force --auto-attach
-
-ENV R_VERSION=4.4.3
-
-# Install R
-RUN yum install -y yum-utils && \
-    subscription-manager repos --enable codeready-builder-for-rhel-9-x86_64-rpms && \
-    yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm && \
-    INSTALL_PKGS="R-core R-core-devel R-java R-Rcpp R-highlight \
-    R-littler R-littler-examples openssl-libs compat-openssl11" && \
-    yum install -y --setopt=tsflags=nodocs $INSTALL_PKGS && \
-    echo 'options(repos = c(CRAN = "https://cran.rstudio.com/"), download.file.method = "libcurl")' >> /usr/lib64/R/etc/Rprofile.site && \
-    (umask 002;touch /usr/lib64/R/etc/Renviron.site) && \
-    yum -y clean all --enablerepo='*'
-
-# set R library to default (used in install.r from littler)
-ENV LIBLOC=/usr/lib64/R/library
-ENV R_LIBS_USER=/opt/app-root/bin/Rpackages/4.4
-
-RUN chmod -R a+w ${LIBLOC} && \
-    # create User R Library path
-    mkdir -p ${R_LIBS_USER} && \
-    chmod -R a+w ${R_LIBS_USER}
-
-# Install R packages
-RUN R -e "install.packages('Rcpp', 'languageserver')"
-
-# unregister the system
-RUN subscription-manager remove --all && subscription-manager unregister && subscription-manager clean
 
 # Restore notebook user workspace
 USER 1001
 WORKDIR /opt/app-root/src
 
 ## install codeserver
-FROM base AS codeserver
+FROM cuda-base AS cuda-codeserver
 
 ARG CODESERVER_SOURCE_CODE=codeserver/ubi9-python-3.11
 ARG CODESERVER_VERSION=v4.99.4
@@ -305,6 +271,43 @@ RUN mkdir -p /var/log/nginx \
     && chmod -R g+rwX /var/log/nginx \
     && chmod -R o+rwX /var/log/nginx
 RUN chmod -R 777 /opt/app-root/lib
+
+
+RUN --mount=type=secret,id=USERNAME \
+    --mount=type=secret,id=PASSWORD \
+    set -eux; \
+    USERNAME="$(tr -d '\r\n' < ${SECRET_DIR}/USERNAME)"; \
+    PASSWORD="$(tr -d '\r\n' < ${SECRET_DIR}/PASSWORD)"; \
+    subscription-manager register --username="$USERNAME" --password="$PASSWORD" --force --auto-attach
+
+ENV R_VERSION=4.4.3
+
+# Install R
+RUN yum install -y yum-utils && \
+    subscription-manager repos --enable codeready-builder-for-rhel-9-x86_64-rpms && \
+    yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm && \
+    INSTALL_PKGS="R-core R-core-devel R-java R-Rcpp R-highlight \
+    R-littler R-littler-examples openssl-libs compat-openssl11" && \
+    yum install -y --setopt=tsflags=nodocs $INSTALL_PKGS && \
+    echo 'options(repos = c(CRAN = "https://cran.rstudio.com/"), download.file.method = "libcurl")' >> /usr/lib64/R/etc/Rprofile.site && \
+    (umask 002;touch /usr/lib64/R/etc/Renviron.site) && \
+    yum -y clean all --enablerepo='*'
+
+# set R library to default (used in install.r from littler)
+ENV LIBLOC=/usr/lib64/R/library
+ENV R_LIBS_USER=/opt/app-root/bin/Rpackages/4.4
+
+RUN chmod -R a+w ${LIBLOC} && \
+    # create User R Library path
+    mkdir -p ${R_LIBS_USER} && \
+    chmod -R a+w ${R_LIBS_USER}
+
+# Install R packages
+RUN R -e "install.packages('Rcpp', 'languageserver')"
+
+# unregister the system
+RUN subscription-manager remove --all && subscription-manager unregister && subscription-manager clean
+
 
 # REMOVE/HIDE unneccesary packages
 RUN dnf -y remove vim-minimal vim-filesystem tar python3-setuptools && \
