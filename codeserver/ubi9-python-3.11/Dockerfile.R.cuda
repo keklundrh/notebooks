@@ -1,7 +1,6 @@
 ###################
 # base             #
 ####################
-
 FROM registry.access.redhat.com/ubi9/python-311:latest AS base
 
 ## Install base
@@ -142,6 +141,41 @@ RUN dnf install -y \
 # Install CUDA toolkit 12.4
 #RUN dnf -y install cuda-toolkit-12-6 && \
 #    dnf -y clean all --enablerepo="*"
+
+RUN --mount=type=secret,id=USERNAME \
+    --mount=type=secret,id=PASSWORD \
+    set -eux; \
+    USERNAME="$(tr -d '\r\n' < ${SECRET_DIR}/USERNAME)"; \
+    PASSWORD="$(tr -d '\r\n' < ${SECRET_DIR}/PASSWORD)"; \
+    subscription-manager register --username="$USERNAME" --password="$PASSWORD" --force --auto-attach
+
+ENV R_VERSION=4.4.3
+
+# Install R
+RUN yum install -y yum-utils && \
+    subscription-manager repos --enable codeready-builder-for-rhel-9-x86_64-rpms && \
+    yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm && \
+    INSTALL_PKGS="R-core R-core-devel R-java R-Rcpp R-highlight \
+    R-littler R-littler-examples openssl-libs compat-openssl11" && \
+    yum install -y --setopt=tsflags=nodocs $INSTALL_PKGS && \
+    echo 'options(repos = c(CRAN = "https://cran.rstudio.com/"), download.file.method = "libcurl")' >> /usr/lib64/R/etc/Rprofile.site && \
+    (umask 002;touch /usr/lib64/R/etc/Renviron.site) && \
+    yum -y clean all --enablerepo='*'
+
+# set R library to default (used in install.r from littler)
+ENV LIBLOC=/usr/lib64/R/library
+ENV R_LIBS_USER=/opt/app-root/bin/Rpackages/4.4
+
+RUN chmod -R a+w ${LIBLOC} && \
+    # create User R Library path
+    mkdir -p ${R_LIBS_USER} && \
+    chmod -R a+w ${R_LIBS_USER}
+
+# Install R packages
+RUN R -e "install.packages('Rcpp', 'languageserver')"
+
+# unregister the system
+RUN subscription-manager remove --all && subscription-manager unregister && subscription-manager clean
 
 # Restore notebook user workspace
 USER 1001
