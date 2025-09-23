@@ -312,7 +312,7 @@ RUN subscription-manager remove --all && subscription-manager unregister && subs
 
 
 # REMOVE/HIDE unneccesary packages
-RUN dnf -y remove vim-minimal vim-filesystem tar python3-setuptools && \
+RUN dnf -y remove vim-minimal vim-filesystem tar python3-setuptools libtiff && \
     find /usr/share -name \*setuptools\*.whl -exec rm {} + && \
     dnf -y clean all && \
     rm -rf /var/cache/yum/*
