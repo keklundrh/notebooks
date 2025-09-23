@@ -273,6 +273,8 @@ RUN mkdir -p /var/log/nginx \
 RUN chmod -R 777 /opt/app-root/lib
 
 
+ARG SECRET_DIR=/run/secrets/ #/opt/app-root/src/.sec
+
 RUN --mount=type=secret,id=USERNAME \
     --mount=type=secret,id=PASSWORD \
     set -eux; \
@@ -303,7 +305,7 @@ RUN chmod -R a+w ${LIBLOC} && \
     chmod -R a+w ${R_LIBS_USER}
 
 # Install R packages
-RUN R -e "install.packages('Rcpp', 'languageserver')"
+RUN R -e "install.packages(c('Rcpp', 'languageserver'))"
 
 # unregister the system
 RUN subscription-manager remove --all && subscription-manager unregister && subscription-manager clean
