@@ -278,6 +278,8 @@ RUN dnf -y remove vim-minimal vim-filesystem tar && \
     dnf -y clean all && \
     rm -rf /var/cache/yum/*
 
+RUN rpm -e --nodeps libtiff libtiff-devel
+
 # restore notebook user workspace
 USER 1001
 
