@@ -11,12 +11,6 @@ RUN pip install --no-cache-dir -U "micropipenv[toml]"
 # OS Packages needs to be installed as root
 USER root
 
-# Remove libtiff & libtiff-devel
-RUN rpm -e --nodeps libtiff libtiff-devel
-# RUN dnf -y remove --noautoremove libtiff && \ 
-# 	dnf -y clean all && \ 
-# 	rm -rf /var/cache/yum/* 
-
 # upgrade first to avoid fixable vulnerabilities
 RUN dnf -y upgrade --refresh --best --nodocs --noplugins --setopt=install_weak_deps=0 --setopt=keepcache=0 \
     && dnf clean all -y
@@ -378,11 +372,17 @@ RUN if [ -d "${SECRET_DIR}" ]; then \
 
 # REMOVE dependencies, technically only hide, but make inaccessible
 # side effects: container file is larger than it could be
-RUN dnf -y remove libsndfile bluez-libs webkit2gtk3-jsc vim-minimal vim-filesystem cups-libs python3-setuptools && \ 
-    find /usr/share -name \*setuptools\*.whl -exec rm {} + && \
-    /usr/bin/python3.11 -m pip uninstall -y setuptools && \
+RUN dnf -y remove libsndfile bluez-libs webkit2gtk3-jsc vim-minimal vim-filesystem cups-libs && \ 
+    find /usr/share -name \*setuptools\*.whl -exec rm {} + && \ 
+    /usr/bin/python3.11 -m pip uninstall -y setuptools && \ 
+    find /usr/lib/python3.9/site-packages -name \setuptools\* -exec rm -rf {} + && \
     dnf -y clean all && \
     rm -rf /var/cache/yum/*
+
+# Remove libtiff & libtiff-devel
+RUN rpm -e --nodeps libtiff libtiff-devel
+# 	dnf -y clean all && \ 
+# 	rm -rf /var/cache/yum/* 
 
 USER 1001
 
