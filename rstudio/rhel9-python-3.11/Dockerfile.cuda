@@ -20,6 +20,8 @@ RUN dnf -y upgrade --refresh --best --nodocs --noplugins --setopt=install_weak_d
 RUN dnf install -y mesa-libGL && \
     dnf clean all && rm -rf /var/cache/yum # remove skopeo, CVE-2025-4674
 
+
+
 # Other apps and tools installed as default user
 USER 1001
 
@@ -93,7 +95,7 @@ RUN echo "/usr/local/nvidia/lib" >> /etc/ld.so.conf.d/nvidia.conf && \
     echo "/usr/local/nvidia/lib64" >> /etc/ld.so.conf.d/nvidia.conf
 
 ENV PATH=/usr/local/nvidia/bin:/usr/local/cuda/bin:${PATH}
-ENV LD_LIBRARY_PATH=/usr/local/nvidia/lib:/usr/local/nvidia/lib64
+ENV LD_LIBRARY_PATH=/usr/local/nvidia/lib:/usr/local/nvidia/lib64:/usr/local/lib:/usr/local/lib64/:/usr/lib64/R/lib:/lib:/usr/lib/jvm/jre/lib/server
 
 COPY ${CUDA_SOURCE_CODE}/NGC-DL-CONTAINER-LICENSE /
 
@@ -180,10 +182,10 @@ RUN yum install -y \
 #    yum -y clean all --enablerepo="*"
 
 # Unregister the system
-RUN if [ -d "${SECRET_DIR}" ]; then \
-    subscription-manager remove --all && subscription-manager unregister && subscription-manager clean; \
-  fi
-
+#RUN if [ -d "${SECRET_DIR}" ]; then \
+#    subscription-manager remove --all && subscription-manager unregister && subscription-manager clean; \
+#    fi
+#
 # Restore notebook user workspace
 USER 1001
 WORKDIR /opt/app-root/src
@@ -261,7 +263,8 @@ RUN chmod -R a+w ${LIBLOC} && \
 WORKDIR /tmp/
 
 # Install RStudio
-ARG RSTUDIO_RPM=rstudio-server-rhel-2024.12.1-563-x86_64.rpm
+# ARG RSTUDIO_RPM=rstudio-server-rhel-2024.12.1-563-x86_64.rpm
+ARG RSTUDIO_RPM=rstudio-server-rhel-2025.09.1-401-x86_64.rpm
 RUN wget --progress=dot:giga https://download2.rstudio.org/server/rhel9/x86_64/${RSTUDIO_RPM} && \
     yum install -y ${RSTUDIO_RPM} && \
     rm ${RSTUDIO_RPM} && \
@@ -285,8 +288,6 @@ RUN wget --progress=dot:giga https://download2.rstudio.org/server/rhel9/x86_64/$
 
 COPY ${RSTUDIO_SOURCE_CODE}/rsession.conf /etc/rstudio/rsession.conf
 
-# Install R packages
-RUN R -e "install.packages('Rcpp')"
 
 # Install NGINX to proxy RStudio and pass probes check
 ENV NGINX_VERSION=1.24 \
@@ -366,9 +367,39 @@ COPY ${RSTUDIO_SOURCE_CODE}/utils utils/
 COPY ${RSTUDIO_SOURCE_CODE}/run-rstudio.sh ${RSTUDIO_SOURCE_CODE}/setup_rstudio.py ${RSTUDIO_SOURCE_CODE}/rsession.sh ${RSTUDIO_SOURCE_CODE}/run-nginx.sh ./
 
 # Unregister the system
-RUN if [ -d "${SECRET_DIR}" ]; then \
-    subscription-manager remove --all && subscription-manager unregister && subscription-manager clean; \
-  fi
+#RUN if [ -d "${SECRET_DIR}" ]; then \
+#    subscription-manager remove --all && subscription-manager unregister && subscription-manager clean; \
+#    fi
+
+# WORKDIR /tmp
+# # build remediated CVE-2025-9900 libtiff version
+RUN wget --progress=dot:giga https://download.osgeo.org/libtiff/tiff-4.7.1.tar.gz && \
+    tar -zxvf tiff-4.7.1.tar.gz && \
+    cd tiff-4.7.1 && \
+    ./configure \
+        --prefix=/usr/local \
+        --libdir=/usr/local/lib64 \ 
+        --disable-static && \
+    make -j"$(nproc)" && \
+    make install && \
+    cd .. && \ 
+    rm -rf tiff*
+
+
+RUN echo "/usr/local/lib64" >> /etc/ld.so.conf.d/R-x86_64.conf && ldconfig
+RUN ln -sf /usr/local/lib64/libtiff.so.6.2.0 /usr/local/lib64/libtiff.so.6 && \
+    ln -sf /usr/local/lib64/libtiff.so.6     /usr/local/lib64/libtiff.so
+# RUN test -e /usr/local/lib64/libtiff.so.5
+
+# RUN ldconfig && \
+#     ldd /usr/lib/rstudio-server/bin/rserver | grep -i tiff || (echo "libtiff not linked!" && exit 1)
+
+
+# System-wide RStudio defaults
+RUN mkdir -p /etc/R && \
+    echo "options(bitmapType = 'cairo')" >> /etc/R/Rprofile.site && \ 
+    mkdir -p /etc/rstudio && \
+    printf '{\n  "graphics_backend": "ragg"\n}\n' > /etc/rstudio/rstudio-prefs.json
 
 # REMOVE dependencies, technically only hide, but make inaccessible
 # side effects: container file is larger than it could be
@@ -377,24 +408,19 @@ RUN dnf -y remove libsndfile bluez-libs webkit2gtk3-jsc vim-minimal vim-filesyst
     /usr/bin/python3.11 -m pip uninstall -y setuptools && \ 
     find /usr/lib/python3.9/site-packages -name \setuptools\* -exec rm -rf {} + && \
     dnf -y clean all && \
+    rpm -e --nodeps libtiff  libtiff-devel && \
+    rm -f /usr/lib64/libtiff.so* /usr/lib64/libtiff*.so.*  /usr/lib64/libtiff*.so && \ 
     rm -rf /var/cache/yum/*
 
-# Remove libtiff & libtiff-devel
-RUN rpm -e --nodeps libtiff libtiff-devel
-# 	dnf -y clean all && \ 
-# 	rm -rf /var/cache/yum/* 
+# Install R packages
+RUN dnf -y install java-17-openjdk-devel gdal-devel proj-devel geos-devel abseil-cpp-devel cmake cairo-devel udunits2-devel && \
+    dnf -y clean all && \ 
+    rm -rf /var/cache/yum/* 
+
+RUN R -e "install.packages(c('Rcpp', 'tidyverse', 'rJava', 'RJDBC', 'sf', 'leaflet', 'flextable'))"
 
 
-WORKDIR /tmp
-# build remediated CVE-2025-9900 libtiff version
-RUN wget --progress=dot:giga https://download.osgeo.org/libtiff/tiff-4.7.1.tar.gz && \
-    tar -zxvf tiff-4.7.1.tar.gz && \
-    cd tiff-4.7.1 && \
-    ./configure --prefix=/usr && \
-    make && \
-    make install && \
-    cd .. && \ 
-    rm -rf tiff*
+RUN chmod -R a+w /tmp
 
 WORKDIR /opt/app-root/bin
 
