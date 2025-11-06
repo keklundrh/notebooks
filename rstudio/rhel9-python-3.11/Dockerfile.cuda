@@ -419,6 +419,16 @@ RUN dnf -y install java-17-openjdk-devel gdal-devel proj-devel geos-devel abseil
 
 RUN R -e "install.packages(c('Rcpp', 'tidyverse', 'rJava', 'RJDBC', 'sf', 'leaflet', 'flextable'))"
 
+# REMOVE dependencies, technically only hide, but make inaccessible
+# side effects: container file is larger than it could be
+RUN dnf -y remove libsndfile bluez-libs webkit2gtk3-jsc vim-minimal vim-filesystem cups-libs bind-license bind-utils bind-libs && \ 
+#    find /usr/share -name \*setuptools\*.whl -exec rm {} + && \ 
+#    /usr/bin/python3.11 -m pip uninstall -y setuptools && \ 
+#    find /usr/lib/python3.9/site-packages -name \setuptools\* -exec rm -rf {} + && \
+    dnf -y clean all && \
+#    rpm -e --nodeps libtiff  libtiff-devel && \
+#    rm -f /usr/lib64/libtiff.so* /usr/lib64/libtiff*.so.*  /usr/lib64/libtiff*.so && \ 
+    rm -rf /var/cache/yum/*
 
 RUN chmod -R a+w /tmp
 
