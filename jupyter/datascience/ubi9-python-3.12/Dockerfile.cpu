@@ -72,14 +72,15 @@ EOF
 
 ### END upgrade first to avoid fixable vulnerabilities
 
+# REMOVE SKOPEO, consider shipping newer version
 # Install useful OS packages
 RUN --mount=type=cache,target=/var/cache/dnf /bin/bash <<'EOF'
 set -Eeuxo pipefail
 echo "Building for architecture: ${TARGETARCH}"
 if [ "$TARGETARCH" = "s390x" ]; then
-    PACKAGES="perl mesa-libGL skopeo gcc gcc-c++ make openssl-devel autoconf automake libtool cmake python3-devel pybind11-devel openblas-devel unixODBC-devel"
+    PACKAGES="perl mesa-libGL gcc gcc-c++ make openssl-devel autoconf automake libtool cmake python3-devel pybind11-devel openblas-devel unixODBC-devel"
 else
-    PACKAGES="perl mesa-libGL skopeo"
+    PACKAGES="perl mesa-libGL"
 fi
 echo "Installing: $PACKAGES"
 dnf install -y $PACKAGES
@@ -125,13 +126,13 @@ RUN pip install --no-cache-dir --extra-index-url https://pypi.org/simple -U "mic
 ### END Install micropipenv and uv to deploy packages from requirements.txt
 
 ### BEGIN Install the oc client
-RUN /bin/bash <<'EOF'
-set -Eeuxo pipefail
-curl -L https://mirror.openshift.com/pub/openshift-v4/$(uname -m)/clients/ocp/stable/openshift-client-linux.tar.gz \
-    -o /tmp/openshift-client-linux.tar.gz
-tar -xzvf /tmp/openshift-client-linux.tar.gz oc
-rm -f /tmp/openshift-client-linux.tar.gz
-EOF
+# RUN /bin/bash <<'EOF'
+# set -Eeuxo pipefail
+# curl -L https://mirror.openshift.com/pub/openshift-v4/$(uname -m)/clients/ocp/stable/openshift-client-linux.tar.gz \
+#     -o /tmp/openshift-client-linux.tar.gz
+# tar -xzvf /tmp/openshift-client-linux.tar.gz oc
+# rm -f /tmp/openshift-client-linux.tar.gz
+# EOF
 
 ### END Install the oc client
 
@@ -324,16 +325,24 @@ WORKDIR /opt/app-root/bin
 # OS Packages needs to be installed as root
 USER root
 
+# REMOVE git-lfs
 # Install useful OS packages
 RUN /bin/bash <<'EOF'
 set -Eeuxo pipefail
-dnf install -y jq unixODBC unixODBC-devel postgresql git-lfs libsndfile libxcrypt-compat
+dnf install -y jq unixODBC unixODBC-devel postgresql libsndfile libxcrypt-compat
 dnf clean all
 rm -rf /var/cache/yum
 EOF
 
 # Copy dynamically-linked mongocli built in earlier build stage
 COPY --from=mongocli-builder /tmp/mongocli /opt/app-root/bin/
+
+## REMOVE old setuptools, old urllib3 
+RUN dnf -y remove libsndfile vim-minimal vim-filesystem && \ 
+    find /usr/share -name \*setuptools\*.whl -exec rm {} + || true  && \ 
+    find /usr/lib/python3.9/site-packages -name \*setuptools\* -exec rm -rf {} + || true && \ 
+    find /usr/lib/python3.9/site-packages -name \*urllib\* -exec rm -rf {} + || true && \ 
+    find /usr/share -name \*urllib3\*.whl -exec rm {} + || true
 
 # Other apps and tools installed as default user
 USER 1001
